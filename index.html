@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schlaf-Tracker</title>
+  <style>
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f4f4f5;
+      --border-light: #e4e4e7;
+      --border-medium: #d4d4d8;
+      --text-primary: #18181b;
+      --text-secondary: #71717a;
+      --text-tertiary: #a1a1aa;
+      --bg-success: #f0fdf4;
+      --text-success: #166534;
+      --radius: 10px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #18181b;
+        --bg-secondary: #27272a;
+        --border-light: #3f3f46;
+        --border-medium: #52525b;
+        --text-primary: #fafafa;
+        --text-secondary: #a1a1aa;
+        --text-tertiary: #71717a;
+        --bg-success: #052e16;
+        --text-success: #86efac;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    .container { width: 100%; max-width: 480px; }
+
+    .page-header { text-align: center; margin-bottom: 28px; }
+    .page-header h1 { font-size: 20px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.02em; }
+    .page-header p  { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+
+    .sd-xp-outer { height: 8px; background: var(--bg-secondary); border: 0.5px solid var(--border-light); border-radius: 6px; overflow: hidden; margin: 5px 0 2px; }
+    .sd-xp-inner { height: 100%; background: #7F77DD; border-radius: 6px; transition: width .7s ease; }
+
+    .sd-quest {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 14px;
+      background: var(--bg-primary);
+      border: 0.5px solid var(--border-light);
+      border-radius: var(--radius);
+      cursor: pointer; user-select: none; transition: background .15s;
+    }
+    .sd-quest:hover:not(.sd-locked) { background: var(--bg-secondary); }
+    .sd-quest.sd-locked { cursor: default; }
+    .sd-quest.sd-qok .sd-chk { background: #7F77DD; border-color: #7F77DD; color: #fff; }
+
+    .sd-chk {
+      width: 20px; height: 20px;
+      border: 1.5px solid var(--border-medium);
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 13px; font-weight: 700; line-height: 1;
+      transition: all .15s;
+      color: transparent;
+    }
+
+    .sd-quest-icon { font-size: 18px; flex-shrink: 0; line-height: 1; }
+
+    .sd-pill { margin-left: auto; font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 12px; white-space: nowrap; flex-shrink: 0; }
+    .sd-pill-main { color: #534AB7; background: #EEEDFE; }
+    .sd-pill-side { color: var(--text-secondary); background: var(--bg-secondary); }
+    @media (prefers-color-scheme: dark) { .sd-pill-main { color: #AFA9EC; background: #26215C; } }
+
+    .sd-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; flex-shrink: 0; }
+
+    .sd-btn { width: 100%; padding: 12px; background: #534AB7; color: #fff; border: none; border-radius: var(--radius); font-size: 15px; font-weight: 500; cursor: pointer; transition: background .15s, transform .1s; }
+    .sd-btn:hover:not(:disabled) { background: #3C3489; }
+    .sd-btn:active:not(:disabled) { transform: scale(.98); }
+    .sd-btn:disabled { background: var(--bg-secondary); color: var(--text-secondary); cursor: default; border: 0.5px solid var(--border-light); }
+
+    .sd-lbl { font-size: 11px; font-weight: 500; color: var(--text-tertiary); letter-spacing: .08em; text-transform: uppercase; margin: 0 0 8px; }
+    .sd-stat { background: var(--bg-secondary); border-radius: var(--radius); padding: 10px 8px; text-align: center; }
+
+    .sd-toast { border-radius: var(--radius); padding: 10px 14px; font-size: 14px; font-weight: 500; text-align: center; margin-bottom: 16px; display: none; background: var(--bg-success); color: var(--text-success); }
+
+    .sd-mult { border-radius: var(--radius); padding: 8px 12px; font-size: 13px; display: none; align-items: center; gap: 8px; margin-bottom: 16px; background: #EEEDFE; color: #534AB7; }
+    @media (prefers-color-scheme: dark) { .sd-mult { background: #26215C; color: #AFA9EC; } }
+
+    .sd-avatar { width: 46px; height: 46px; border-radius: 50%; background: #EEEDFE; border: 0.5px solid #AFA9EC; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 22px; line-height: 1; }
+    @media (prefers-color-scheme: dark) { .sd-avatar { background: #26215C; border-color: #3C3489; } }
+
+    .sd-divider { font-size: 11px; font-weight: 500; color: var(--text-tertiary); letter-spacing: .06em; text-transform: uppercase; margin: 12px 0 8px; padding-left: 2px; }
+
+    .reset-btn { background: none; border: none; font-size: 12px; color: var(--text-tertiary); cursor: pointer; padding: 4px; }
+    .reset-btn:hover { color: var(--text-secondary); }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="page-header">
+    <h1>🌙 Schlaf-Tracker</h1>
+    <p>Dein täglicher Schlaf-Rhythmus</p>
+  </div>
+
+  <div style="padding-bottom:1rem">
+    <div class="sd-toast" id="sd-toast"></div>
+
+    <!-- Level / Streak Header -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+      <div class="sd-avatar" id="sd-avatar">🌑</div>
+      <div style="flex:1;min-width:0">
+        <p style="font-size:15px;font-weight:500;color:var(--text-primary)" id="sd-lvname">Level 1 · Nachtschatten</p>
+        <p style="font-size:12px;color:var(--text-secondary)" id="sd-lvsub">Noch im Dunkel des alten Rhythmus</p>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <p style="font-size:26px;font-weight:500;color:#534AB7" id="sd-streak">0</p>
+        <p style="font-size:11px;color:var(--text-secondary)">Streak 🔥</p>
+      </div>
+    </div>
+
+    <!-- XP Bar -->
+    <div style="margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary)">
+        <span id="sd-xplbl">0 XP</span>
+        <span id="sd-xpnxt"></span>
+      </div>
+      <div class="sd-xp-outer"><div class="sd-xp-inner" id="sd-xpbar" style="width:0%"></div></div>
+    </div>
+
+    <!-- Multiplier Banner -->
+    <div class="sd-mult" id="sd-mult">
+      <span>⚡</span>
+      <span id="sd-multtxt"></span>
+    </div>
+
+    <!-- Quest List -->
+    <div id="sd-qlist"></div>
+
+    <!-- Commit Button -->
+    <button class="sd-btn" id="sd-btn" onclick="sdCommit()" style="margin-top:4px">Tag abschliessen</button>
+
+    <!-- History -->
+    <div style="margin-top:24px">
+      <p class="sd-lbl">Letzte 14 Tage</p>
+      <div id="sd-hist" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    </div>
+
+    <!-- Stats -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:20px">
+      <div class="sd-stat">
+        <p style="font-size:20px;font-weight:500;color:var(--text-primary)" id="st-xp">0</p>
+        <p style="font-size:11px;color:var(--text-secondary)">Gesamt-XP</p>
+      </div>
+      <div class="sd-stat">
+        <p style="font-size:20px;font-weight:500;color:var(--text-primary)" id="st-days">0</p>
+        <p style="font-size:11px;color:var(--text-secondary)">Tage geloggt</p>
+      </div>
+      <div class="sd-stat">
+        <p style="font-size:20px;font-weight:500;color:var(--text-primary)" id="st-best">0</p>
+        <p style="font-size:11px;color:var(--text-secondary)">Längster Streak</p>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;text-align:center">
+      <button class="reset-btn" onclick="if(confirm('Experiment zurücksetzen?'))sdReset()">Experiment zurücksetzen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Quest-Icons als Emojis – keine externe Bibliothek nötig
+const QS = [
+  {id:'wake',  ic:'⏰', lb:'06:30 aufgestanden',     sb:'Zirkadianer Anker',         xp:30, main:true},
+  {id:'light', ic:'☀️', lb:'Morgenlicht bekommen',    sb:'5 / 10 / 20 min je Wetter', xp:30, main:true},
+  {id:'bed',   ic:'🌙', lb:'Vor 22:30 eingeschlafen', sb:'8h Schlaffenster',          xp:30, main:true},
+  {id:'caff',  ic:'☕', lb:'Koffein-Stop vor 13:00',  sb:'Nebenquest · Tiefschlaf',   xp:10, main:false},
+  {id:'nsdr',  ic:'💤', lb:'NSDR oder kurzer Nap',    sb:'Nebenquest · max. 25 min',  xp:10, main:false},
+];
+
+// Level-Emojis passend zum Thema
+const LV = [
+  {mn:0,    mx:499,  n:1, nm:'Nachtschatten',    sb:'Noch im Dunkel des alten Rhythmus',  em:'🌑'},
+  {mn:500,  mx:1099, n:2, nm:'Morgendämmer',      sb:'Das erste Licht bricht durch',       em:'🌤️'},
+  {mn:1100, mx:2199, n:3, nm:'Sonnenwächter',     sb:'Du holst dir das Morgenlicht',       em:'☀️'},
+  {mn:2200, mx:4199, n:4, nm:'Rhythmushüter',     sb:'Dein Körper kennt die Zeit',         em:'🎯'},
+  {mn:4200, mx:7499, n:5, nm:'Traumschmied',      sb:'Du formst deinen Schlaf bewusst',    em:'⚡'},
+  {mn:7500, mx:1e9,  n:6, nm:'Schlaf-Dragonborn', sb:'Du und der Sonnenrhythmus sind eins',em:'🐉'},
+];
+
+const ML = [{s:21,m:2.0,l:'×2.0'},{s:14,m:1.75,l:'×1.75'},{s:7,m:1.5,l:'×1.5'},{s:3,m:1.25,l:'×1.25'}];
+
+let G  = {xp:0, streak:0, best:0, last:null, grace:false, hist:[]};
+let TQ = {};
+
+const tday  = () => new Date().toISOString().split('T')[0];
+const ddiff = (a,b) => Math.round((new Date(b+'T12:00:00') - new Date(a+'T12:00:00')) / 864e5);
+const glv   = x => LV.slice().reverse().find(l => x >= l.mn) || LV[0];
+const gml   = s => ML.find(m => s >= m.s) || null;
+const dlb   = d => ['So','Mo','Di','Mi','Do','Fr','Sa'][new Date(d+'T12:00:00').getDay()];
+
+function lsGet(k) { try { const v=localStorage.getItem(k); return v?{value:v}:null; } catch(e){ return null; } }
+function lsSet(k,v){ try { localStorage.setItem(k,v); return true; } catch(e){ return false; } }
+
+function sdLoad() {
+  try { const r=lsGet('sdrg3'); if(r) G={...G,...JSON.parse(r.value)}; } catch(e){}
+  try { const r=lsGet('sdrt3'); if(r){ const t=JSON.parse(r.value); if(t.d===tday()) TQ=t.q||{}; } } catch(e){}
+  if(G.last && G.last!==tday() && ddiff(G.last,tday())>2){ G.streak=0; G.grace=false; }
+  sdRender();
+}
+function sdSaveG(){ lsSet('sdrg3', JSON.stringify(G)); }
+function sdSaveT(){ lsSet('sdrt3', JSON.stringify({d:tday(), q:TQ})); }
+
+function sdIsDone(){ return G.last===tday(); }
+function sdCalc(){
+  const base=QS.reduce((s,q)=>s+(TQ[q.id]?q.xp:0),0);
+  const ml=gml(G.streak||0);
+  return{base, fin:ml?Math.round(base*ml.m):base, ml};
+}
+function sdToggle(id){
+  if(sdIsDone()) return;
+  TQ[id]=!TQ[id]; sdSaveT(); sdRender();
+}
+function sdCommit(){
+  if(sdIsDone()) return;
+  const t=tday();
+  const{fin,base}=sdCalc();
+  if(!G.last){ G.streak=1; }
+  else{
+    const df=ddiff(G.last,t);
+    if(df===1)            { G.streak++; G.grace=false; }
+    else if(df===2&&!G.grace){ G.streak++; G.grace=true; }
+    else                  { G.streak=1; G.grace=false; }
+  }
+  G.best=(G.best||0)<G.streak?G.streak:G.best;
+  G.xp=(G.xp||0)+fin;
+  G.last=t;
+  G.hist=G.hist||[];
+  G.hist.push({d:t,xp:fin,base,ok:QS.filter(q=>TQ[q.id]).length,tot:QS.length});
+  if(G.hist.length>60) G.hist=G.hist.slice(-60);
+  sdSaveG();
+  const el=document.getElementById('sd-toast');
+  el.textContent=`+${fin} XP verdient! Streak: ${G.streak} Tage 🔥`;
+  el.style.display='block';
+  setTimeout(()=>el.style.display='none',4000);
+  sdRender();
+}
+function sdReset(){
+  G={xp:0,streak:0,best:0,last:null,grace:false,hist:[]}; TQ={};
+  lsSet('sdrg3',JSON.stringify(G));
+  lsSet('sdrt3',JSON.stringify({d:tday(),q:{}}));
+  sdRender();
+}
+
+function sdRender(){
+  const done=sdIsDone();
+  const lv=glv(G.xp||0);
+  const ml=gml(G.streak||0);
+
+  // Avatar-Emoji je Level
+  document.getElementById('sd-avatar').textContent = lv.em;
+
+  document.getElementById('sd-lvname').textContent=`Level ${lv.n} · ${lv.nm}`;
+  document.getElementById('sd-lvsub').textContent=lv.sb;
+  document.getElementById('sd-streak').textContent=G.streak||0;
+  document.getElementById('sd-xplbl').textContent=`${G.xp||0} XP`;
+
+  if(lv.n<LV.length){
+    document.getElementById('sd-xpbar').style.width=Math.min(100,((G.xp||0)-lv.mn)/(lv.mx-lv.mn)*100)+'%';
+    document.getElementById('sd-xpnxt').textContent=`→ ${LV[lv.n].nm} bei ${lv.mx+1} XP`;
+  } else {
+    document.getElementById('sd-xpbar').style.width='100%';
+    document.getElementById('sd-xpnxt').textContent='· Schlaf-Dragonborn erreicht ·';
+  }
+
+  const mb=document.getElementById('sd-mult');
+  if(ml&&!done){ mb.style.display='flex'; document.getElementById('sd-multtxt').textContent=`Streak-Bonus aktiv: ${ml.l} auf alle heutigen XP`; }
+  else { mb.style.display='none'; }
+
+  // Quest list
+  const ql=document.getElementById('sd-qlist');
+  ql.innerHTML='';
+  const{ml:cm}=sdCalc();
+
+  function renderGroup(quests, label){
+    const wrap=document.createElement('div');
+    wrap.innerHTML=`<p class="sd-divider">${label}</p>`;
+    const list=document.createElement('div');
+    list.style.cssText='display:flex;flex-direction:column;gap:8px;margin-bottom:4px';
+    quests.forEach(q=>{
+      const ok=!!TQ[q.id];
+      const xpd=cm?Math.round(q.xp*cm.m):q.xp;
+      const pillCls=q.main?'sd-pill-main':'sd-pill-side';
+      const r=document.createElement('div');
+      r.className='sd-quest'+(ok?' sd-qok':'')+(done?' sd-locked':'');
+      if(!done) r.onclick=()=>sdToggle(q.id);
+      r.innerHTML=`
+        <div class="sd-chk">${ok?'✓':''}</div>
+        <span class="sd-quest-icon">${q.ic}</span>
+        <div style="flex:1;min-width:0">
+          <p style="font-size:14px;font-weight:500;color:var(--text-primary)">${q.lb}</p>
+          <p style="font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${q.sb}</p>
+        </div>
+        <span class="sd-pill ${pillCls}">+${xpd} XP</span>`;
+      list.appendChild(r);
+    });
+    wrap.appendChild(list);
+    ql.appendChild(wrap);
+  }
+
+  renderGroup(QS.filter(q=>q.main), 'Hauptquests · 30 XP');
+  renderGroup(QS.filter(q=>!q.main), 'Nebenquests · 10 XP');
+
+  // Button
+  const btn=document.getElementById('sd-btn');
+  if(done){
+    const h=(G.hist||[]).find(h=>h.d===tday());
+    btn.textContent=h?`✓ Tag abgeschlossen · +${h.xp} XP`:'✓ Tag abgeschlossen';
+    btn.disabled=true;
+  } else {
+    const{fin}=sdCalc();
+    btn.textContent=fin>0?`Tag abschliessen · +${fin} XP`:'Tag abschliessen';
+    btn.disabled=false;
+  }
+
+  // History dots
+  const hc=document.getElementById('sd-hist');
+  hc.innerHTML='';
+  const t=tday();
+  for(let i=13;i>=0;i--){
+    const nd=new Date(); nd.setDate(nd.getDate()-i);
+    const ds=nd.toISOString().split('T')[0];
+    const h=(G.hist||[]).find(h=>h.d===ds);
+    const isT=ds===t;
+    const dot=document.createElement('div');
+    let bg,clr,extra='';
+    if(h||(isT&&done))  { bg='#7F77DD'; clr='#fff'; }
+    else if(isT)        { bg='transparent'; clr='var(--text-primary)'; extra='border:2px solid #7F77DD;'; }
+    else                { bg='var(--bg-secondary)'; clr='var(--text-tertiary)'; }
+    dot.className='sd-dot';
+    dot.style.cssText=`background:${bg};color:${clr};${extra}`;
+    dot.title=h?`${ds}: +${h.xp} XP, ${h.ok}/${h.tot} Quests`:ds;
+    dot.textContent=dlb(ds);
+    hc.appendChild(dot);
+  }
+
+  document.getElementById('st-xp').textContent=G.xp||0;
+  document.getElementById('st-days').textContent=(G.hist||[]).length;
+  document.getElementById('st-best').textContent=G.best||0;
+}
+
+sdLoad();
+</script>
+</body>
+</html>
